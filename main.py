@@ -38,9 +38,11 @@ def main():
     bf = cv2.BFMatcher(cv2.NORM_HAMMING)
 
     compares = []
-    counter = {}
+    counter = { name: 0 for name in args.appearances }
+    display(counter)
+
     while True:
-        time.sleep(.75)
+        time.sleep(1)
 
         frame = get_frame(args.monitor)
         frame = format_img(frame)
@@ -51,7 +53,7 @@ def main():
         matches = bf.knnMatch(target_des, frame_des, k = 2)
         matches = [m for m, n in matches if m.distance < .5 * n.distance]
 
-        if len(matches) < 80:
+        if len(matches) < 100:
             if len(compares) == 0: continue
         else:
             compares.append((frame, frame_kp, matches))
@@ -63,11 +65,14 @@ def main():
         rate, name = what_pokemon(frame_target, args.appearances)
 
         if rate > .75:
-            counter[name] = counter.get(name, 0) + 1
-            print(counter)
+            counter[name] += 1
+            display(counter)
 
         compares = []
 
+
+def display(counter):
+    print(f'\rCounter: {counter}', end = '')
 
 def format_img(img, scale = 1):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -117,9 +122,8 @@ def what_pokemon(img, appearances):
     tool = pyocr.get_available_tools()[0]
     builder = pyocr.builders.TextBuilder(tesseract_layout=6)
     txt = tool.image_to_string(img, lang='jpn', builder=builder)
-
     txt = re.sub(r'\s', '', txt.split('\n')[1])
-    name = txt.split('が')[0]
+    name = txt.rsplit('が', 1)[0]
 
     result = [(difflib.SequenceMatcher(None, _name, name).ratio(), _name) for _name in appearances]
     result = max(result, key=lambda item: item[0])
