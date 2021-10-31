@@ -14,7 +14,16 @@ from screeninfo import get_monitors
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('appearances', nargs='+')
+
+    help = 'Specify the encounter type'
+    parser.add_argument('-t', '--type', choices = ['wild'], help = help, required = True)
+
+    help = 'Specify the Pokémon name to be counted (multiple names can be specified using single-byte spaces)'
+    parser.add_argument('-a', '--appearances', nargs='+', help = help, required = True)
+
+    help = 'Specify the target monitors in index format'
+    parser.add_argument('-m', '--monitor', help = help, default = 0)
+
     return parser.parse_args()
 
 def main():
@@ -22,7 +31,7 @@ def main():
 
     akaze = cv2.AKAZE_create()
 
-    target_img = cv2.imread('./assets/images/wild.jpg')
+    target_img = cv2.imread(f'./assets/images/{args.type}.jpg')
     target_img = format_img(target_img)
     target_kp, target_des = akaze.detectAndCompute(target_img, None)
 
@@ -33,7 +42,7 @@ def main():
     while True:
         time.sleep(.75)
 
-        frame = get_frame()
+        frame = get_frame(args.monitor)
         frame = format_img(frame)
         frame_kp, frame_des = akaze.detectAndCompute(frame, None)
 
@@ -69,8 +78,8 @@ def get_monitor(i):
     m = get_monitors()[i]
     return (m.x, m.y, m.width, m.height)
 
-def get_frame():
-    monitor = get_monitor(0)
+def get_frame(i):
+    monitor = get_monitor(i)
     with mss() as sct: frame = sct.grab(monitor)
     return np.asarray(frame)
 
