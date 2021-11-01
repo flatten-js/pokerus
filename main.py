@@ -12,17 +12,27 @@ from PIL import Image
 from screeninfo import get_monitors
 
 
+TYPE_WILD = 'wild'
+TYPE_WILD_SYMBOL = 'wild.symbol'
+TYPE_WILD_RANDOM = 'wild.random'
+
+RATE_WILD_BREAK = 50
+RATE_WILD_SYMBOL = 90
+RATE_WILD_RANDOM = 190
+
+
 def get_args():
     parser = argparse.ArgumentParser()
 
     help = 'Specify the encounter type'
-    parser.add_argument('-t', '--type', choices = ['wild'], help = help, required = True)
+    choices = [TYPE_WILD, TYPE_WILD_SYMBOL, TYPE_WILD_RANDOM]
+    parser.add_argument('-t', '--type', choices = choices, help = help, required = True)
 
     help = 'Specify the Pokémon name to be counted (multiple names can be specified using single-byte spaces)'
     parser.add_argument('-a', '--appearances', nargs='+', help = help, required = True)
 
     help = 'Specify the target monitors in index format'
-    parser.add_argument('-m', '--monitor', help = help, default = 0)
+    parser.add_argument('-m', '--monitor', help = help, type = int, default = 0)
 
     return parser.parse_args()
 
@@ -31,16 +41,12 @@ def main():
 
     akaze = cv2.AKAZE_create()
 
-    target_img = cv2.imread(f'./assets/images/{args.type}.jpg')
-    target_img = format_img(target_img)
-    target_kp, target_des = akaze.detectAndCompute(target_img, None)
-
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING)
-
-    compares = []
+    templates = get_templates(args.type, akaze)
     counter = { name: 0 for name in args.appearances }
     display(counter)
 
+    def init(): return (None, None), []
+    current, compares = init()
     while True:
         time.sleep(1)
 
@@ -50,17 +56,20 @@ def main():
 
         if frame_des is None: continue
 
-        matches = bf.knnMatch(target_des, frame_des, k = 2)
-        matches = [m for m, n in matches if m.distance < .5 * n.distance]
+        matches, current = get_template_matches(templates, current, frame_des)
 
-        if len(matches) < 100:
-            if len(compares) == 0: continue
+        if current[1] is None: continue
+        elif len(matches) < current[1]:
+            if not len(compares): continue
+            # Do
         else:
-            compares.append((frame, frame_kp, matches))
+            compare = { 'img': frame, 'kp': frame_kp, 'matches': matches }
+            compares.append(compare)
             continue
 
-        compare = max(compares, key = lambda compare: len(compare[2]))
-        frame_target = extract_kps_target(target_img, target_kp, compare)
+        template = current[0]
+        compare = max(compares, key = lambda compare: len(compare['matches']))
+        frame_target = extract_kps_target(template, compare)
 
         rate, name = what_pokemon(frame_target, args.appearances)
 
@@ -68,8 +77,22 @@ def main():
             counter[name] += 1
             display(counter)
 
-        compares = []
+        current, compares = init()
 
+
+def get_templates(type, akaze):
+    list = []
+
+    if type in TYPE_WILD_SYMBOL: list.append(TYPE_WILD_SYMBOL)
+    if type in TYPE_WILD_RANDOM: list.append(TYPE_WILD_RANDOM)
+
+    for i, type in enumerate(list):
+        img = cv2.imread(f'./assets/images/{type}.jpg')
+        img = format_img(img)
+        kp, des = akaze.detectAndCompute(img, None)
+        list[i] = { 'type': type, 'img': img, 'kp': kp, 'des': des }
+
+    return list
 
 def display(counter):
     print(f'\rCounter: {counter}', end = '')
@@ -88,33 +111,52 @@ def get_frame(i):
     with mss() as sct: frame = sct.grab(monitor)
     return np.asarray(frame)
 
-def extract_kps_target(target_img, target_kp, compare):
-    compare_img, compare_kp, matches = compare
+def get_template_matches(templates, current, frame_des):
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING)
+    list = []
 
+    for template in templates:
+        if current[0] and current[0]['type'] != template['type']: continue
+
+        matches = bf.knnMatch(template['des'], frame_des, k = 2)
+        matches = [m for m, n in matches if m.distance < .5 * n.distance]
+        list.append(matches)
+
+        matches_length = len(matches)
+        if matches_length < RATE_WILD_BREAK: break
+        if TYPE_WILD_SYMBOL == template['type'] and matches_length > RATE_WILD_SYMBOL:
+            current = (template, RATE_WILD_SYMBOL); break
+        if TYPE_WILD_RANDOM == template['type'] and matches_length > RATE_WILD_RANDOM:
+            current = (template, RATE_WILD_RANDOM); break
+
+    matches = max(list, key = lambda matches: len(matches))
+    return matches, current
+
+def extract_kps_target(target, compare):
     kps_query_x = []
     kps_query_y = []
     kps_train_x = []
     kps_train_y = []
 
-    for match in matches:
+    for match in compare['matches']:
         gq = match.queryIdx
         gt = match.trainIdx
 
-        kps_query_x.append(target_kp[gq].pt[0])
-        kps_query_y.append(target_kp[gq].pt[1])
-        kps_train_x.append(compare_kp[gt].pt[0])
-        kps_train_y.append(compare_kp[gt].pt[1])
+        kps_query_x.append(target['kp'][gq].pt[0])
+        kps_query_y.append(target['kp'][gq].pt[1])
+        kps_train_x.append(compare['kp'][gt].pt[0])
+        kps_train_y.append(compare['kp'][gt].pt[1])
 
     x_mag = (max(kps_query_x) - min(kps_query_x)) / (max(kps_train_x) - min(kps_train_x))
     y_mag = (max(kps_query_y) - min(kps_query_y)) / (max(kps_train_y) - min(kps_train_y))
 
-    height, width = target_img.shape
+    height, width = target['img'].shape
     left = int(min(kps_train_x) - min(kps_query_x) / x_mag)
     right = int(left + width / x_mag)
     top = int(min(kps_train_y) - min(kps_query_y) / y_mag)
     bottom = int(top + height / y_mag)
 
-    return compare_img[top:bottom, left:right]
+    return compare['img'][top:bottom, left:right]
 
 def what_pokemon(img, appearances):
     img = Image.fromarray(img)
