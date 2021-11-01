@@ -151,10 +151,16 @@ def extract_kps_target(target, compare):
     y_mag = (max(kps_query_y) - min(kps_query_y)) / (max(kps_train_y) - min(kps_train_y))
 
     height, width = target['img'].shape
+    
     left = int(min(kps_train_x) - min(kps_query_x) / x_mag)
     right = int(left + width / x_mag)
     top = int(min(kps_train_y) - min(kps_query_y) / y_mag)
     bottom = int(top + height / y_mag)
+
+    left = max(0, left)
+    right = max(width, right)
+    top = max(0, top)
+    bottom = max(height, bottom)
 
     return compare['img'][top:bottom, left:right]
 
