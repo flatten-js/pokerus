@@ -104,7 +104,7 @@ def format_img(img, scale = 1):
 
 def get_monitor(i):
     m = get_monitors()[i]
-    return (m.x, m.y, m.width, m.height)
+    return { "top": m.y, "left": m.x, "width": m.width, "height": m.height }
 
 def get_frame(i):
     monitor = get_monitor(i)
@@ -151,7 +151,7 @@ def extract_kps_target(target, compare):
     y_mag = (max(kps_query_y) - min(kps_query_y)) / (max(kps_train_y) - min(kps_train_y))
 
     height, width = target['img'].shape
-    
+
     left = int(min(kps_train_x) - min(kps_query_x) / x_mag)
     right = int(left + width / x_mag)
     top = int(min(kps_train_y) - min(kps_query_y) / y_mag)
