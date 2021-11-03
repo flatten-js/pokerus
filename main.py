@@ -1,7 +1,12 @@
 import argparse
+import datetime
 import difflib
+import json
+import math
+import os
 import re
 import time
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -29,6 +34,9 @@ CAPTURE_TYPE_VIDEO = 'video'
 def get_args():
     parser = argparse.ArgumentParser()
 
+    help = 'To save the data this time, specify the label'
+    parser.add_argument('-l', '--label', help = help)
+
     help = 'Specify the type of capture'
     choices = [CAPTURE_TYPE_SCREEN, CAPTURE_TYPE_VIDEO]
     parser.add_argument('-ct', '--capture-type', choices = choices, help = help, default = CAPTURE_TYPE_SCREEN)
@@ -46,6 +54,7 @@ def get_args():
     return parser.parse_args()
 
 def main():
+    start = time.perf_counter()
     args = get_args()
 
     akaze = cv2.AKAZE_create()
@@ -56,39 +65,46 @@ def main():
 
     capture_meta = get_capture_meta(args.capture_type, args.capture_number)
 
-    def init(): return (None, None), []
-    current, compares = init()
-    while True:
-        time.sleep(1)
-
-        frame = get_capture(capture_meta)
-        frame = format_img(frame)
-        frame_kp, frame_des = akaze.detectAndCompute(frame, None)
-
-        if frame_des is None: continue
-
-        matches, current = get_template_matches(templates, current, frame_des)
-
-        if current[1] is None: continue
-        elif len(matches) < current[1]:
-            if not len(compares): continue
-            # Do
-        else:
-            compare = { 'img': frame, 'kp': frame_kp, 'matches': matches }
-            compares.append(compare)
-            continue
-
-        template = current[0]
-        compare = max(compares, key = lambda compare: len(compare['matches']))
-        frame_target = extract_kps_target(template, compare)
-
-        rate, name = what_pokemon(frame_target, args.appearances)
-
-        if rate > .75:
-            counter[name] += 1
-            display(counter)
-
+    try:
+        def init(): return (None, None), []
         current, compares = init()
+        while True:
+            time.sleep(1)
+
+            frame = get_capture(capture_meta)
+            frame = format_img(frame)
+            frame_kp, frame_des = akaze.detectAndCompute(frame, None)
+
+            if frame_des is None: continue
+
+            matches, current = get_template_matches(templates, current, frame_des)
+
+            if current[1] is None: continue
+            elif len(matches) < current[1]:
+                if not len(compares): continue
+                # Do
+            else:
+                compare = { 'img': frame, 'kp': frame_kp, 'matches': matches }
+                compares.append(compare)
+                continue
+
+            template = current[0]
+            compare = max(compares, key = lambda compare: len(compare['matches']))
+            frame_target = extract_kps_target(template, compare)
+
+            rate, name = what_pokemon(frame_target, args.appearances)
+
+            if rate > .75:
+                counter[name] += 1
+                display(counter)
+
+            current, compares = init()
+    except (KeyboardInterrupt, Exception) as e:
+        print('\n')
+        if str(e): print(f'Error: {e}')
+    finally:
+        capture_release(capture_meta)
+        report(args, counter, start)
 
 0+-+-+-+-+-+-+-+-+-+-+-+-+-+-0
 
@@ -108,6 +124,13 @@ def get_capture(meta):
             frame = np.asarray(frame)
 
     return frame
+
+def capture_release(meta):
+    type, capture = meta
+
+    if CAPTURE_TYPE_VIDEO == type:
+        capture.release()
+        cv2.destroyAllWindows()
 
 def get_templates(type, akaze):
     list = []
@@ -206,6 +229,44 @@ def what_pokemon(img, appearances):
     result = max(result, key=lambda item: item[0])
 
     return result
+
+def to_time(ss):
+    ss = math.floor(ss)
+    m, _ = divmod(ss, 60)
+    h, m = divmod(m, 60)
+    return f'{h}:{str(m).zfill(2)}'
+
+def report(args, counter, start):
+    end = time.perf_counter()
+    play_time = end - start
+
+    if args.label is None:
+        return print(f'Play time: {to_time(play_time)}')
+
+    path = os.path.join('data', args.label)
+    os.makedirs(path, exist_ok = True)
+
+    path = os.path.join(path, 'meta.json')
+    path = Path(path)
+    path.touch(exist_ok = True)
+
+    with open(path, 'r+', encoding = "utf-8") as f:
+        meta = f.read() or '{}'
+        meta = json.loads(meta)
+
+        play_time = meta.get('play_time', 0) + play_time
+        meta['play_time'] = play_time
+        meta['args'] = meta.get('args', {}) | vars(args)
+        meta['counter'] = meta.get('counter', {}) | counter
+
+        meta = json.dumps(meta, indent = 2, ensure_ascii = False)
+
+        f.truncate(0)
+        f.seek(0)
+        f.write(meta)
+
+        print(f'Play time: {to_time(play_time)}')
+        print('You saved your progress!')
 
 0+-+-+-+-+-+-+-+-+-+-+-+-+-+-0
 
