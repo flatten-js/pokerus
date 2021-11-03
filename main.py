@@ -239,7 +239,8 @@ def get_template_matches(templates, current, frame_des):
         if current[0] and current[0]['type'] != template['type']: continue
 
         matches = bf.knnMatch(template['des'], frame_des, k = 2)
-        matches = [m for m, n in matches if m.distance < .5 * n.distance]
+        try: matches = [m for m, n in matches if m.distance < .5 * n.distance]
+        except Exception: list.append([]); continue
         list.append(matches)
 
         matches_length = len(matches)
