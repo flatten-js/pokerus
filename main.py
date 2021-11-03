@@ -20,19 +20,26 @@ RATE_WILD_BREAK = 50
 RATE_WILD_SYMBOL = 90
 RATE_WILD_RANDOM = 190
 
+CAPTURE_TYPE_SCREEN = 'screen'
+CAPTURE_TYPE_VIDEO = 'video'
+
 
 def get_args():
     parser = argparse.ArgumentParser()
 
-    help = 'Specify the encounter type'
+    help = 'Specify the type of capture'
+    choices = [CAPTURE_TYPE_SCREEN, CAPTURE_TYPE_VIDEO]
+    parser.add_argument('-ct', '--capture-type', choices = choices, help = help, default = CAPTURE_TYPE_SCREEN)
+
+    help = 'Specify the capture target by number'
+    parser.add_argument('-cn', '--capture-number', help = help, type = int, default = 0)
+
+    help = 'Specify the type of encounter'
     choices = [TYPE_WILD, TYPE_WILD_SYMBOL, TYPE_WILD_RANDOM]
-    parser.add_argument('-t', '--type', choices = choices, help = help, required = True)
+    parser.add_argument('-t', '--type', choices = choices, help = help, default = TYPE_WILD)
 
     help = 'Specify the Pokémon name to be counted (multiple names can be specified using single-byte spaces)'
     parser.add_argument('-a', '--appearances', nargs='+', help = help, required = True)
-
-    help = 'Specify the target monitors in index format'
-    parser.add_argument('-m', '--monitor', help = help, type = int, default = 0)
 
     return parser.parse_args()
 
@@ -45,12 +52,14 @@ def main():
     counter = { name: 0 for name in args.appearances }
     display(counter)
 
+    capture_meta = get_capture_meta(args.capture_type, args.capture_number)
+
     def init(): return (None, None), []
     current, compares = init()
     while True:
         time.sleep(1)
 
-        frame = get_frame(args.monitor)
+        frame = get_capture(capture_meta)
         frame = format_img(frame)
         frame_kp, frame_des = akaze.detectAndCompute(frame, None)
 
@@ -79,6 +88,23 @@ def main():
 
         current, compares = init()
 
+
+def get_capture_meta(type, n):
+    if CAPTURE_TYPE_VIDEO == type: capture = cv2.VideoCapture(n)
+    else: capture = get_monitor(n)
+    return type, capture
+
+def get_capture(meta):
+    type, capture = meta
+
+    if CAPTURE_TYPE_VIDEO == type:
+        _, frame = capture.read()
+    else:
+        with mss() as sct:
+            frame = sct.grab(capture)
+            frame = np.asarray(frame)
+
+    return frame
 
 def get_templates(type, akaze):
     list = []
