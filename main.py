@@ -11,6 +11,7 @@ from mss import mss
 from PIL import Image
 from screeninfo import get_monitors
 
+0+-+-+-+-+-+-+-+-+-+-+-+-+-+-0
 
 TYPE_WILD = 'wild'
 TYPE_WILD_SYMBOL = 'wild.symbol'
@@ -23,6 +24,7 @@ RATE_WILD_RANDOM = 190
 CAPTURE_TYPE_SCREEN = 'screen'
 CAPTURE_TYPE_VIDEO = 'video'
 
+0+-+-+-+-+-+-+-+-+-+-+-+-+-+-0
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -88,6 +90,7 @@ def main():
 
         current, compares = init()
 
+0+-+-+-+-+-+-+-+-+-+-+-+-+-+-0
 
 def get_capture_meta(type, n):
     if CAPTURE_TYPE_VIDEO == type: capture = cv2.VideoCapture(n)
@@ -204,5 +207,6 @@ def what_pokemon(img, appearances):
 
     return result
 
+0+-+-+-+-+-+-+-+-+-+-+-+-+-+-0
 
 main()
