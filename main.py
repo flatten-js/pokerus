@@ -18,6 +18,9 @@ from screeninfo import get_monitors
 
 0+-+-+-+-+-+-+-+-+-+-+-+-+-+-0
 
+DATA_PATH = 'data'
+META_FILE = 'meta.json'
+
 TYPE_WILD = 'wild'
 TYPE_WILD_SYMBOL = 'wild.symbol'
 TYPE_WILD_RANDOM = 'wild.random'
@@ -34,35 +37,56 @@ CAPTURE_TYPE_VIDEO = 'video'
 def get_args():
     parser = argparse.ArgumentParser()
 
+    help = 'Specify the existing data'
+    parser.add_argument('--load', help = help)
+
     help = 'To save the data this time, specify the label'
-    parser.add_argument('-l', '--label', help = help)
+    parser.add_argument('-l', '--label', help = help, default = argparse.SUPPRESS)
 
     help = 'Specify the type of capture'
     choices = [CAPTURE_TYPE_SCREEN, CAPTURE_TYPE_VIDEO]
-    parser.add_argument('-ct', '--capture-type', choices = choices, help = help, default = CAPTURE_TYPE_SCREEN)
+    parser.add_argument('-ct', '--capture-type', choices = choices, help = help, default = argparse.SUPPRESS)
 
     help = 'Specify the capture target by number'
-    parser.add_argument('-cn', '--capture-number', help = help, type = int, default = 0)
+    parser.add_argument('-cn', '--capture-number', help = help, type = int, default = argparse.SUPPRESS)
 
     help = 'Specify the type of encounter'
     choices = [TYPE_WILD, TYPE_WILD_SYMBOL, TYPE_WILD_RANDOM]
-    parser.add_argument('-t', '--type', choices = choices, help = help, default = TYPE_WILD)
+    parser.add_argument('-t', '--type', choices = choices, help = help, default = argparse.SUPPRESS)
 
     help = 'Specify the Pokémon name to be counted (multiple names can be specified using single-byte spaces)'
-    parser.add_argument('-a', '--appearances', nargs='+', help = help, required = True)
+    parser.add_argument('-a', '--appearances', nargs='*', help = help, default = argparse.SUPPRESS)
 
     return parser.parse_args()
+
+def init_args(args):
+    args = argparse.Namespace(**vars(args))
+    _args = vars(args)
+
+    if 'label' not in args: _args['label'] = None
+    if 'capture_type' not in args: _args['capture_type'] = CAPTURE_TYPE_SCREEN
+    if 'capture_number' not in args: _args['capture_number'] = 0
+    if 'type' not in args: _args['type'] = TYPE_WILD
+    if 'appearances' not in args: _args['appearances'] = []
+
+    return args
+
+0+-+-+-+-+-+-+-+-+-+-+-+-+-+-0
 
 def main():
     start = time.perf_counter()
     args = get_args()
 
-    akaze = cv2.AKAZE_create()
+    if args.load:
+        args, counter = load(args)
+    else:
+        args = init_args(args)
+        counter = { name: 0 for name in args.appearances }
 
-    templates = get_templates(args.type, akaze)
-    counter = { name: 0 for name in args.appearances }
     display(counter)
 
+    akaze = cv2.AKAZE_create()
+    templates = get_templates(args.type, akaze)
     capture_meta = get_capture_meta(args.capture_type, args.capture_number)
 
     try:
@@ -107,6 +131,50 @@ def main():
         report(args, counter, start)
 
 0+-+-+-+-+-+-+-+-+-+-+-+-+-+-0
+
+def deep_merge(d1, d2, duplicate = True):
+    d = {}
+
+    for k, v in d1.items():
+        if k in d2:
+            if type(v) is dict: d[k] = merge(d1[k], d2[k], duplicate)
+            elif type(v) is list:
+                if type(d2[k]) is not list: d2[k] = [d2[k]]
+                d[k] = d1[k] + d2[k]
+                if not duplicate: d[k] = list(dict.fromkeys(d[k]))
+            else:
+                d[k] = d2[k]
+        else:
+            d[k] = d1[k]
+
+    for k, v in d2.items():
+        if k not in d1: d[k] = d2[k]
+
+    return d
+
+def to_time(ss):
+    ss = math.floor(ss)
+    m, _ = divmod(ss, 60)
+    h, m = divmod(m, 60)
+    return f'{h}:{str(m).zfill(2)}'
+
+0+-+-+-+-+-+-+-+-+-+-+-+-+-+-0
+
+def load(args):
+    path = os.path.join(DATA_PATH, args.load, META_FILE)
+    with open(path, 'r', encoding = "utf-8") as f:
+        meta = f.read() or '{}'
+        meta = json.loads(meta)
+
+        meta_args = meta.get('args', {})
+        meta_counter = meta.get('counter', {})
+
+        args = deep_merge(meta_args, vars(args), duplicate = False)
+        args = argparse.Namespace(**args)
+        counter = { name: 0 for name in args.appearances }
+        counter = counter | meta_counter
+
+    return args, counter
 
 def get_capture_meta(type, n):
     if CAPTURE_TYPE_VIDEO == type: capture = cv2.VideoCapture(n)
@@ -230,12 +298,6 @@ def what_pokemon(img, appearances):
 
     return result
 
-def to_time(ss):
-    ss = math.floor(ss)
-    m, _ = divmod(ss, 60)
-    h, m = divmod(m, 60)
-    return f'{h}:{str(m).zfill(2)}'
-
 def report(args, counter, start):
     end = time.perf_counter()
     play_time = end - start
@@ -243,10 +305,10 @@ def report(args, counter, start):
     if args.label is None:
         return print(f'Play time: {to_time(play_time)}')
 
-    path = os.path.join('data', args.label)
+    path = os.path.join(DATA_PATH, args.label)
     os.makedirs(path, exist_ok = True)
 
-    path = os.path.join(path, 'meta.json')
+    path = os.path.join(path, META_FILE)
     path = Path(path)
     path.touch(exist_ok = True)
 
