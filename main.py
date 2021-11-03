@@ -50,6 +50,9 @@ def get_args():
     help = 'Specify the capture target by number'
     parser.add_argument('-cn', '--capture-number', help = help, type = int, default = argparse.SUPPRESS)
 
+    help = 'Specifies the approximate cycle for shooting (The lower the value, the higher the load)'
+    parser.add_argument('-cc', '--capture-cycle', help = help, type = float, default = argparse.SUPPRESS)
+
     help = 'Specify the type of encounter'
     choices = [TYPE_WILD, TYPE_WILD_SYMBOL, TYPE_WILD_RANDOM]
     parser.add_argument('-t', '--type', choices = choices, help = help, default = argparse.SUPPRESS)
@@ -66,6 +69,7 @@ def init_args(args):
     if 'label' not in args: _args['label'] = None
     if 'capture_type' not in args: _args['capture_type'] = CAPTURE_TYPE_SCREEN
     if 'capture_number' not in args: _args['capture_number'] = 0
+    if 'capture_cycle' not in args: _args['capture_cycle'] = 1
     if 'type' not in args: _args['type'] = TYPE_WILD
     if 'appearances' not in args: _args['appearances'] = []
 
@@ -93,7 +97,7 @@ def main():
         def init(): return (None, None), []
         current, compares = init()
         while True:
-            time.sleep(1)
+            time.sleep(args.capture_cycle)
 
             frame = get_capture(capture_meta)
             frame = format_img(frame)
