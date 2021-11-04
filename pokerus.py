@@ -337,4 +337,5 @@ def report(args, counter, start):
 
 0+-+-+-+-+-+-+-+-+-+-+-+-+-+-0
 
-main()
+if __name__ == "__main__":
+    main()
