@@ -1,3 +1,4 @@
+import sys
 import time
 
 import lib.utils as utils
@@ -16,14 +17,15 @@ def main():
         args = Argument.to_default(args)
         data = Data(args)
 
-    data.display()
-
     pokexxx = Pokexxx(args.type, args.appearances)
     capture = Capture(args.capture_type, args.capture_number)
 
     try:
+        eel = data.sync()
+
+        eel.init_js(data.counter, data.log)
         while True:
-            time.sleep(args.capture_cycle)
+            eel.sleep(args.capture_cycle)
 
             frame = capture.get()
             result = pokexxx.clarify(frame)
@@ -32,10 +34,11 @@ def main():
             rate, name = result
             if rate < .75: continue
 
-            data.counter[name] += 1
-            data.display()
+            eel.update_js(name)
 
-    except (KeyboardInterrupt, Exception) as e:
+    except KeyboardInterrupt: pass
+    except SystemExit: pass
+    except Exception as e:
         print('\n')
         if str(e): print(f'Error: {e}')
 

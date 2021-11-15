@@ -3,6 +3,8 @@ import os
 import time
 from pathlib import Path
 
+import eel
+
 from . import utils
 from .argument import Argument
 
@@ -12,9 +14,10 @@ class Data():
     PATH = './data'
     META_FILE = 'meta.json'
 
-    def __init__(self, args, counter = None):
+    def __init__(self, args, counter = {}, log = []):
         self._args = args
         self.counter = counter or Data.__counter(args.appearances)
+        self.log = log
         self.start = time.perf_counter()
 
     @staticmethod
@@ -30,16 +33,26 @@ class Data():
 
             meta_args = meta.get('args', {})
             meta_counter = meta.get('counter', {})
+            meta_log = meta.get('log', [])
 
             args = utils.deep_merge(meta_args, vars(args), duplicate = False)
             args = Argument.to_namespace(args)
             counter = Data.__counter(args.appearances)
             counter = counter | meta_counter
 
-        return args, Data(args, counter)
+        return args, Data(args, counter, meta_log)
 
-    def display(self):
-        print(f'\rCounter: {self.counter}', end = '')
+    def sync(self):
+        eel.gvt.get_hub().NOT_ERROR += (KeyboardInterrupt,)
+
+        eel.init('web/dist')
+
+        @eel.expose
+        def update_py(log): self.log = log
+
+        eel.start('.', block = False)
+
+        return eel
 
     def report(self):
         end = time.perf_counter()
@@ -63,6 +76,7 @@ class Data():
             meta['play_time'] = play_time
             meta['args'] = meta.get('args', {}) | vars(self._args)
             meta['counter'] = meta.get('counter', {}) | self.counter
+            meta['log'] = self.log
 
             meta = json.dumps(meta, indent = 2, ensure_ascii = False)
 
