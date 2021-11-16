@@ -1,5 +1,7 @@
 import difflib
+import os
 import re
+import time
 
 import cv2
 import pyocr
@@ -8,6 +10,7 @@ from PIL import Image
 
 from .argument import Argument
 from .capture import Capture
+from .data import Data
 
 
 class Pokexxx():
@@ -117,7 +120,7 @@ class Pokexxx():
         self.compares = []
 
     def clarify(self, frame):
-        frame, frame_kp, frame_des = self.__snapshot(frame)
+        _frame, frame_kp, frame_des = self.__snapshot(frame)
         if frame_des is None: return
 
         matches = self.__get_template_matches(frame_des)
@@ -127,7 +130,7 @@ class Pokexxx():
             if not len(self.compares): return
             #Do
         else:
-            compare = { 'img': frame, 'kp': frame_kp, 'matches': matches }
+            compare = { 'frame': frame, 'img': _frame, 'kp': frame_kp, 'matches': matches }
             self.compares.append(compare)
             return
 
@@ -136,4 +139,4 @@ class Pokexxx():
         frame_target = self.__extract_kps_target(template, compare)
 
         self.__init_data()
-        return self.__what(frame_target)
+        return (compare['frame'], *self.__what(frame_target))

@@ -31,10 +31,11 @@ def main():
             result = pokexxx.clarify(frame)
             if result is None: continue
 
-            rate, name = result
+            frame, rate, name = result
             if rate < .75: continue
 
-            eel.update_js(name)
+            frame_path = data.save_frame(frame, 240)
+            eel.update_js(frame_path, name)
 
     except KeyboardInterrupt: pass
     except SystemExit: pass
