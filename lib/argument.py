@@ -2,14 +2,10 @@ import argparse
 
 
 class Argument():
-    
+
     TYPE_WILD = 'wild'
     TYPE_WILD_SYMBOL = 'wild.symbol'
     TYPE_WILD_RANDOM = 'wild.random'
-
-    RATE_WILD_BREAK = 50
-    RATE_WILD_SYMBOL = 90
-    RATE_WILD_RANDOM = 190
 
     CAPTURE_TYPE_SCREEN = 'screen'
     CAPTURE_TYPE_VIDEO = 'video'

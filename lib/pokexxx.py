@@ -15,6 +15,13 @@ from .data import Data
 
 class Pokexxx():
 
+    RATE_BREAK = 'break'
+    RATE = {
+      RATE_BREAK: 50,
+      Argument.TYPE_WILD_SYMBOL: 90,
+      Argument.TYPE_WILD_RANDOM: 190
+    }
+
     def __init__(self, type, appearances):
         self.akaze = cv2.AKAZE_create()
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING)
@@ -38,10 +45,13 @@ class Pokexxx():
             img = self.__format_img(img)
             kp, des = self.akaze.detectAndCompute(img, None)
 
-            template = { 'type': type, 'img': img, 'kp': kp, 'des': des }
-            if type == Argument.TYPE_WILD_SYMBOL: template['rate'] = Argument.RATE_WILD_SYMBOL
-            elif type == Argument.TYPE_WILD_RANDOM: template['rate'] = Argument.RATE_WILD_RANDOM
-            templates[i] = template
+            templates[i] = {
+              'type': type,
+              'img': img,
+              'kp': kp,
+              'des': des,
+              'rate': Pokexxx.RATE[type]
+            }
 
         return templates
 
@@ -57,9 +67,10 @@ class Pokexxx():
             finally: matches_list.append(matches)
 
             matches_length = len(matches)
-            if matches_length < Argument.RATE_WILD_BREAK: break
-            if matches_length < Argument.RATE_WILD_RANDOM: self.current = template; break
-            if matches_length < Argument.RATE_WILD_SYMBOL: self.current = template; break
+            if matches_length < Pokexxx.RATE[Pokexxx.RATE_BREAK]: break
+            if matches_length < Pokexxx.RATE[template['type']]: continue
+
+            self.current = template
 
         matches = max(matches_list, key = lambda matches: len(matches))
         return matches
