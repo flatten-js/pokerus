@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -14,6 +15,7 @@ from .argument import Argument
 class Data():
 
     PATH = './data'
+    TMP_FOLDER = '__tmp__'
     META_FILE = 'meta.json'
 
     def __init__(self, args, counter = {}, log = []):
@@ -27,11 +29,17 @@ class Data():
         return str(time.time()).replace('.', '_')
 
     def __output(self, load, label):
-        if label is None: return None
-
         output = {}
 
+        if label is None:
+            label = Data.TMP_FOLDER
+            path = os.path.join(Data.PATH, label)
+            output = { '_label': label, 'label': path, 'frame': path }
+            os.makedirs(path, exist_ok = True)
+            return output
+
         try:
+            output['_label'] = label
             output['label'] = os.path.join(Data.PATH, label)
             if not load: os.mkdir(output['label'])
         except FileExistsError as e:
@@ -95,7 +103,8 @@ class Data():
         end = time.perf_counter()
         play_time = end - self.start
 
-        if self.output is None:
+        if self.output['_label'] == Data.TMP_FOLDER:
+            shutil.rmtree(self.output['label'])
             return print(f'Play time: {utils.to_time(play_time)}')
 
         path = os.path.join(self.output['label'], Data.META_FILE)
