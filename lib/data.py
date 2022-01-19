@@ -82,7 +82,7 @@ class Data():
         @eel.expose
         def update_py(log): self.log = log
 
-        eel.start('.', block = False)
+        eel.start('.', block = False, spa = True)
 
         return eel
 
