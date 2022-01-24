@@ -80,7 +80,12 @@ class Data():
         eel.init('web/dist')
 
         @eel.expose
-        def update_py(log): self.log = log
+        def init_py(): return self.log
+
+        @eel.expose
+        def update_py(log):
+            self.log = log
+            eel.sync_js(log)
 
         eel.start('.', block = False, spa = True)
 

@@ -22,8 +22,6 @@ def main():
 
     try:
         eel = data.sync()
-
-        eel.init_js(data.counter, data.log)
         while True:
             eel.sleep(args.capture_cycle)
 
