@@ -18,12 +18,11 @@ class Data():
     TMP_FOLDER = '__tmp__'
     META_FILE = 'meta.json'
 
-    def __init__(self, args, counter = {}, log = []):
+    def __init__(self, args, logs = []):
         self.start = time.perf_counter()
         self.output = self.__output(args.load, args.label)
         self._args = args
-        self.counter = counter or Data.__counter(args.appearances)
-        self.log = log
+        self.logs = logs
 
     def __now_name(self):
         return str(time.time()).replace('.', '_')
@@ -53,10 +52,6 @@ class Data():
         return output
 
     @staticmethod
-    def __counter(appearances):
-        return { name: 0 for name in appearances }
-
-    @staticmethod
     def load(args):
         path = os.path.join(Data.PATH, args.load, Data.META_FILE)
         with open(path, 'r', encoding = "utf-8") as f:
@@ -64,15 +59,12 @@ class Data():
             meta = json.loads(meta)
 
             meta_args = meta.get('args', {})
-            meta_counter = meta.get('counter', {})
-            meta_log = meta.get('log', [])
+            meta_logs = meta.get('logs', [])
 
             args = utils.deep_merge(meta_args, vars(args), duplicate = False)
             args = Argument.to_namespace(args)
-            counter = Data.__counter(args.appearances)
-            counter = counter | meta_counter
 
-        return args, Data(args, counter, meta_log)
+        return args, Data(args, meta_logs)
 
     def sync(self):
         eel.gvt.get_hub().NOT_ERROR += (KeyboardInterrupt,)
@@ -80,12 +72,13 @@ class Data():
         eel.init('web/dist')
 
         @eel.expose
-        def init_py(): return self.log
+        def init_py():
+            return { 'appearances': self._args.appearances, 'logs': self.logs }
 
         @eel.expose
-        def update_py(log):
-            self.log = log
-            eel.sync_js(log)
+        def update_py(logs):
+            self.logs = logs
+            eel.sync_js(logs)
 
         eel.start('.', block = False, spa = True)
 
@@ -123,8 +116,7 @@ class Data():
             play_time = meta.get('play_time', 0) + play_time
             meta['play_time'] = play_time
             meta['args'] = meta.get('args', {}) | vars(self._args)
-            meta['counter'] = meta.get('counter', {}) | self.counter
-            meta['log'] = self.log
+            meta['logs'] = self.logs
 
             meta = json.dumps(meta, indent = 2, ensure_ascii = False)
 
