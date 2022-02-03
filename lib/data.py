@@ -16,6 +16,7 @@ class Data():
 
     PATH = './data'
     TMP_FOLDER = '__tmp__'
+    FRAMES_FOLDER = 'frames'
     META_FILE = 'meta.json'
 
     def __init__(self, args, logs = []):
@@ -30,13 +31,7 @@ class Data():
     def __output(self, load, label):
         output = {}
 
-        if label is None:
-            label = Data.TMP_FOLDER
-            path = os.path.join(Data.PATH, label)
-            output = { '_label': label, 'label': path, 'frame': path }
-            os.makedirs(path, exist_ok = True)
-            return output
-
+        if label is None: label = Data.TMP_FOLDER
         try:
             output['_label'] = label
             output['label'] = os.path.join(Data.PATH, label)
@@ -46,8 +41,8 @@ class Data():
             print("Please delete or '--load' the existing data with the same name.")
             sys.exit()
 
-        output['frame'] = os.path.join(output['label'], self.__now_name())
-        os.mkdir(output['frame'])
+        output['frame'] = os.path.join(output['label'], Data.FRAMES_FOLDER)
+        os.makedirs(output['frame'], exist_ok = True)
 
         return output
 
