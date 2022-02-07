@@ -1,5 +1,7 @@
 import math
+import os
 
+lib_path = os.path.dirname(os.path.abspath(__file__))
 
 def deep_merge(d1, d2, duplicate = True):
     d = {}
@@ -20,6 +22,19 @@ def deep_merge(d1, d2, duplicate = True):
         if k not in d1: d[k] = d2[k]
 
     return d
+
+def flatten(l):
+    for v in l:
+        if isinstance(v, (list, tuple)): yield from flatten(v)
+        else: yield v
+
+def folder_size(path):
+    total = 0
+    with os.scandir(path) as iter:
+        for entry in iter:
+            if entry.is_dir(): total += folder_size(entry.path)
+            else: total += entry.stat().st_size
+    return total
 
 def to_time(ss):
     ss = math.floor(ss)
